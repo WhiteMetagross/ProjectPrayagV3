@@ -1,0 +1,11 @@
+# Behavior-Aware Trajectory Prediction System
+# Based on: "Behavior-Aware Trajectory Prediction in Unstructured Traffic"
+
+# Core dependencies
+numpy>=1.21.0
+opencv-python>=4.5.0
+scipy>=1.7.0
+shapely>=1.8.0
+
+# Optional - for GeoJSON export
+geojson>=2.5.0

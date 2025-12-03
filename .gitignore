@@ -1,0 +1,15 @@
+# Exclude output directory
+output/
+
+# Exclude cache directory
+__pycache__/
+
+# Exclude VS Code configuration
+.vscode/
+
+# Python
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
