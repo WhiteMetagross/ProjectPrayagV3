@@ -1,4 +1,4 @@
-# Behavior Aware Trajectory Prediction in Unstructured Traffic via Probabilistic Flow Embedding:
+# Behavior Aware Trajectory Prediction in Unstructured Indian Traffic through Probabilistic Flow Embedding:
 
 **Creator:** Mridankan Mandal
 
@@ -84,5 +84,6 @@ The system's performance is validated through qualitative analysis of the genera
 
 ## 8. Conclusion:
 The proposed system effectively predicts multi-modal vehicle trajectories by explicitly modeling the physical and social forces governing traffic flow. The shift from discrete lane lines to a probabilistic flow surface allows for a more natural representation of unstructured traffic, while the integration of game theory enables the anticipation of cooperative behaviors.
+
 
 
