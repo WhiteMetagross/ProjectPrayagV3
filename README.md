@@ -27,12 +27,18 @@ The following diagram shows the high level data flow and component interaction w
 ### 3.1. Emerging Lane Extraction, and Probabilistic Embedding:
 To handle unstructured traffic, the system first "learns" where vehicles actually drive.
 *   **Trajectory Clustering:** Raw vehicle tracks are smoothed using a Savitzky Golay filter. We then employ a **Hausdorff Distance** metric to identify spatially similar tracks.
-$$ d_H(A, B) = \max \left( \sup_{a \in A} \inf_{b \in B} d(a, b), \sup_{b \in B} \inf_{a \in A} d(a, b) \right) $$
+
+    $$ d_H(A, B) = \max \left( \sup_{a \in A} \inf_{b \in B} d(a, b), \sup_{b \in B} \inf_{a \in A} d(a, b) \right) $$
+
     Tracks within a tight threshold (like 3.0 pixels) are merged into a single representative "emerging lane."
 *   **Confidence Scoring:** Not all extracted lanes are equal. We assign a confidence score $C_{lane}$ based on the number of supporting tracks ($N_{support}$), ensuring that heavily traveled paths exert a stronger influence on prediction.
-$$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) $$
+
+    $$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) $$
+
 *   **Gaussian Splatting:** Instead of treating lanes as binary lines, we embed them into the road mask as Gaussian distributions. This creates a **Traffic Flow Potential Surface** $P(x)$, where pixel intensity represents the probability of traffic flow.
-$$ P(x) = \sum_{k} C_k \cdot \exp\left(-\frac{dist(x, lane_k)^2}{2\sigma^2}\right) $$
+
+    $$ P(x) = \sum_{k} C_k \cdot \exp\left(-\frac{dist(x, lane_k)^2}{2\sigma^2}\right) $$
+
     This surface allows the predictor to favor paths that follow the "flow" while permitting deviations necessary for overtaking or avoidance.
 
 ![Traffic Flow Potential Surface](visualizations/VisualizationTraffixFlowRegion.jpg)
@@ -44,18 +50,24 @@ Velocity $v$ and acceleration $a$ are derived using finite differences, and angu
 
 ### 3.3. Social Potential Fields:
 To model the repulsive influence of nearby vehicles, we utilize Social Potential Fields. A potential function $U(x)$ is defined around each obstacle vehicle $j$.
+
 $$ U_j(x) = A_{risk} \cdot \exp\left(-\frac{||x - p_j||^2}{2\sigma_{social}^2}\right) $$
+
 The total potential at any point is the superposition of individual fields. This field is used to penalize candidate paths that traverse high risk regions, effectively modeling collision avoidance behavior.
 
 ### 3.4. Game Theoretic Interaction Modeling:
 Interactions at conflict points (like intersections) are formulated as non-cooperative games. A payoff matrix determines the optimal strategy (Yield or Pass) for the ego vehicle.
 The payoff function $J$ considers safety, efficiency, and right-of-way rules.
+
 $$ J(s_i, s_j) = w_1 \cdot T_{clearance} + w_2 \cdot V_{avg} + w_3 \cdot P_{priority} $$
+
 Based on the Nash Equilibrium of the game, the predicted velocity profile is adjusted to reflect cooperative behaviors such as yielding or accelerating.
 
 ### 3.5. Trajectory Optimization:
 A diverse set of candidate trajectories $\mathcal{T}$ is generated using parametric curves (constant velocity, constant acceleration, curvilinear). Each candidate $\tau$ is evaluated using a multi-objective scoring function:
+
 $$ Score(\tau) = P_{base} \cdot F_{flow}(\tau) \cdot F_{social}(\tau) \cdot F_{kinematic}(\tau) \cdot F_{game}(\tau) $$
+
 *   **$F_{flow}$:** Integral of the Traffic Flow Potential Surface along the path.
 *   **$F_{social}$:** Inverse exponential of the accumulated social potential.
 *   **$F_{kinematic}$:** Smoothness and physical feasibility constraints.
