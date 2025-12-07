@@ -34,12 +34,18 @@ class TrackDataLoader:
         csv_path = None
         json_path = None
         
-        # Find tracking files
-        for filename in os.listdir(self.data_path):
-            if filename.endswith('_tracks.csv'):
-                csv_path = os.path.join(self.data_path, filename)
-            elif filename.endswith('_tracks.json'):
-                json_path = os.path.join(self.data_path, filename)
+        if os.path.isfile(self.data_path):
+            if self.data_path.endswith('.csv'):
+                csv_path = self.data_path
+            elif self.data_path.endswith('.json'):
+                json_path = self.data_path
+        else:
+            # Find tracking files
+            for filename in os.listdir(self.data_path):
+                if filename.endswith('_tracks.csv'):
+                    csv_path = os.path.join(self.data_path, filename)
+                elif filename.endswith('_tracks.json'):
+                    json_path = os.path.join(self.data_path, filename)
         
         # Prefer CSV for efficiency
         if csv_path and os.path.exists(csv_path):

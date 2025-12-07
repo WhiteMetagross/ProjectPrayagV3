@@ -81,12 +81,16 @@ Handles all rendering and graphical output.
 A standalone script for quantitative evaluation of the system.
 *   **Test Harness:** Loads a dataset and runs the predictor on a set of test cases.
 *   **Batch Processing:** Iterates through frames and vehicles to collect prediction samples.
-*   **Reporting:** Aggregates results and prints summary statistics.
+*   **Reporting:** Aggregates results and prints summary statistics for validation and test splits.
 
 ### `evaluation_metrics.py`:
 Defines the mathematical metrics used to judge performance.
 *   **minADE@k:** Minimum Average Displacement Error (mean Euclidean distance).
 *   **minFDE@k:** Minimum Final Displacement Error (endpoint distance).
+*   **Miss Rate:** Percentage of predictions exceeding error thresholds.
+*   **Norm FDE:** FDE normalized by trajectory length.
+*   **APD:** Average Pairwise Distance for measuring diversity.
+*   **NLL:** Negative Log Likelihood for probabilistic evaluation.
 *   **Collision Rate:** Percentage of predictions that intersect with other agents.
 *   **Off-Road Rate:** Percentage of predictions that leave the drivable area.
 

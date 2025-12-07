@@ -1,6 +1,9 @@
 # Exclude output directory
 output/
 
+# Exclude dataset directory
+ChunkedProjectPrayagBEVDataset/
+
 # Exclude cache directory
 __pycache__/
 

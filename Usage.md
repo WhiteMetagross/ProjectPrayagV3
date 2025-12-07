@@ -58,15 +58,21 @@ To quantitatively assess the performance of the model, use the `evaluate_system.
 ### Running Evaluation:
 
 ```bash
-python evaluate_system.py
+python evaluate_system.py --split val
+# or
+python evaluate_system.py --split test
 ```
 
 ### Evaluation Metrics:
 
 The script reports the following metrics:
 
-*   **minADE@4:** Minimum Average Displacement Error over 4 seconds. Measures the average Euclidean distance between the best predicted path and the ground truth.
-*   **minFDE@4:** Minimum Final Displacement Error over 4 seconds. Measures the distance between the predicted endpoint and the actual endpoint.
+*   **minADE@k:** Minimum Average Displacement Error at k=1 and k=4. Measures the average Euclidean distance between the best predicted path and the ground truth.
+*   **minFDE@k:** Minimum Final Displacement Error at k=1 and k=4. Measures the distance between the predicted endpoint and the actual endpoint.
+*   **Miss Rate:** The percentage of cases where the best prediction's final error exceeds a threshold (10px and 20px).
+*   **Norm FDE:** Final Displacement Error normalized by the length of the ground truth trajectory.
+*   **APD (Diversity):** Average Pairwise Distance between the top predicted trajectories, measuring the diversity of the predictions.
+*   **NLL:** Negative Log Likelihood, evaluating the probabilistic quality of the predictions.
 *   **Collision Rate:** The percentage of predicted trajectories that result in a collision with another agent.
 *   **Off-Road Rate:** The percentage of predicted trajectories that exit the drivable area defined by the road mask.
 

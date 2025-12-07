@@ -75,6 +75,30 @@ $$ Score(\tau) = P_{base} \cdot F_{flow}(\tau) \cdot F_{social}(\tau) \cdot F_{k
     This will process the first 400 frames, extracting lanes, building the potential surface, and generating predictions.
 3.  **Output:** Results are saved to `output/predictions/` as an MP4 video.
 
+## 6. Evaluation Results:
+
+The system was evaluated on the validation and test splits of the ChunkedProjectPrayagBEVDataset. The metrics used are Minimum Average Displacement Error (minADE), Minimum Final Displacement Error (minFDE), Collision Rate, and Off-Road Rate.
+
+| Metric | Validation Split | Test Split |
+| :--- | :--- | :--- |
+| **Samples** | 493 | 706 |
+| **minADE@1** | 19.92 px | 23.11 px |
+| **minADE@4** | 14.53 px | 17.37 px |
+| **minFDE@1** | 32.73 px | 39.77 px |
+| **minFDE@4** | 24.10 px | 30.83 px |
+| **Miss Rate @10px** | 68.97% | 74.79% |
+| **Miss Rate @20px** | 48.68% | 60.48% |
+| **Norm FDE** | 0.6267 | 0.5929 |
+| **APD (Diversity)** | 9.84 px | 13.09 px |
+| **NLL (Probabilistic)** | 8.4553 | 8.6808 |
+| **Collision Rate** | 2.03% | 3.54% |
+| **Off-Road Rate** | 0.61% | 0.14% |
+
+### Dataset Statistics
+Based on the analysis of 11,593 vehicles across the dataset:
+*   **Average Vehicle Length:** 35.08 pixels
+*   **Average Vehicle Width:** 20.82 pixels
+
 ## 7. Visual Results:
 
 The system's performance is validated through qualitative analysis of the generated predictions.

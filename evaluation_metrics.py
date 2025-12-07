@@ -107,7 +107,7 @@ class TrajectoryEvaluator:
 
     def evaluate_batch(self, predictions: List[Dict], gt_path: List[Tuple[float, float]], 
                        other_agents_futures: List[List[Tuple[float, float]]],
-                       k: int = 4) -> Dict:
+                       k_list: List[int] = [1, 4]) -> Dict:
         """
         Compute metrics for a single test case (one ego vehicle).
         
@@ -115,7 +115,7 @@ class TrajectoryEvaluator:
             predictions: List of prediction dicts (must have 'path_points').
             gt_path: Ground truth future path.
             other_agents_futures: Ground truth futures of neighbors.
-            k: Number of top predictions to consider (minADE@K).
+            k_list: List of K values to compute minADE/minFDE for.
             
         Returns:
             Dictionary of metrics.
@@ -123,38 +123,129 @@ class TrajectoryEvaluator:
         if not predictions or not gt_path:
             return {}
             
-        # Sort predictions by probability/score if available, else take first K
+        # Sort predictions by probability/score
         sorted_preds = sorted(predictions, key=lambda x: x.get('probability', 0), reverse=True)
-        top_k_preds = sorted_preds[:k]
         
+        metrics = {}
+        
+        # 1. Displacement Metrics (minADE, minFDE) for each K
+        max_k = max(k_list)
+        top_max_k_preds = sorted_preds[:max_k]
+        
+        # Pre-compute ADEs and FDEs for all top predictions
         ades = []
         fdes = []
-        off_road_flags = []
-        collision_flags = []
+        paths = []
+        probs = []
         
-        for pred in top_k_preds:
+        for pred in top_max_k_preds:
             path = pred['path_points']
+            paths.append(path)
+            probs.append(pred.get('probability', 1.0))
             ades.append(self.compute_ade(path, gt_path))
             fdes.append(self.compute_fde(path, gt_path))
-            off_road_flags.append(self.check_off_road(path))
-            collision_flags.append(self.check_collision(path, other_agents_futures))
             
-        # minADE / minFDE
-        min_ade = min(ades) if ades else float('inf')
-        min_fde = min(fdes) if fdes else float('inf')
+        for k in k_list:
+            if k > len(ades):
+                # If fewer predictions than K, use all available
+                curr_ades = ades
+                curr_fdes = fdes
+            else:
+                curr_ades = ades[:k]
+                curr_fdes = fdes[:k]
+                
+            metrics[f'minADE@{k}'] = min(curr_ades) if curr_ades else float('inf')
+            metrics[f'minFDE@{k}'] = min(curr_fdes) if curr_fdes else float('inf')
+
+        # 2. Miss Rate (based on minFDE@max_k usually, or @4)
+        # We'll use the largest K for "system capability" miss rate
+        best_fde = metrics[f'minFDE@{max(k_list)}']
+        metrics['miss_rate_10'] = 1.0 if best_fde > 10.0 else 0.0
+        metrics['miss_rate_20'] = 1.0 if best_fde > 20.0 else 0.0
         
-        # For collision and off-road rate, we usually evaluate the "best" trajectory 
-        # (the one closest to GT) or the "most likely" one.
-        # Standard benchmarks often report "Miss Rate" based on minFDE.
-        # Here we will report if the *best matching* trajectory (minFDE one) had a collision/off-road.
-        
+        # 3. Normalized FDE
+        # Calculate GT length
+        gt_arr = np.array(gt_path)
+        if len(gt_arr) > 1:
+            # Arc length
+            diffs = np.linalg.norm(gt_arr[1:] - gt_arr[:-1], axis=1)
+            gt_len = np.sum(diffs)
+        else:
+            gt_len = 0.0
+            
+        if gt_len > 1.0: # Avoid division by zero or tiny lengths
+            metrics['norm_fde'] = best_fde / gt_len
+        else:
+            metrics['norm_fde'] = best_fde # Fallback or 0?
+            
+        # 4. Collision and Off-Road (based on best matching trajectory)
+        # Find index of best FDE among the top K
         best_idx = np.argmin(fdes) if fdes else 0
-        is_collision = collision_flags[best_idx] if collision_flags else False
-        is_off_road = off_road_flags[best_idx] if off_road_flags else False
+        best_path = paths[best_idx] if paths else []
         
-        return {
-            f'minADE@{k}': min_ade,
-            f'minFDE@{k}': min_fde,
-            'collision': is_collision,
-            'off_road': is_off_road
-        }
+        metrics['collision'] = 1.0 if self.check_collision(best_path, other_agents_futures) else 0.0
+        metrics['off_road'] = 1.0 if self.check_off_road(best_path) else 0.0
+        
+        # 5. Diversity: APD (Average Pairwise Distance)
+        # Computed on top K=4 (or max_k)
+        if len(paths) > 1:
+            pairwise_dists = []
+            for i in range(len(paths)):
+                for j in range(i + 1, len(paths)):
+                    # Compute ADE between path i and path j
+                    # Truncate to min len
+                    p1 = paths[i]
+                    p2 = paths[j]
+                    min_len = min(len(p1), len(p2))
+                    if min_len > 0:
+                        d = np.mean(np.linalg.norm(np.array(p1[:min_len]) - np.array(p2[:min_len]), axis=1))
+                        pairwise_dists.append(d)
+            metrics['apd'] = np.mean(pairwise_dists) if pairwise_dists else 0.0
+        else:
+            metrics['apd'] = 0.0
+            
+        # 6. Probabilistic: NLL (Negative Log Likelihood)
+        # Using Gaussian Mixture Model assumption
+        # P(y) = sum(w_i * N(y | y_i, sigma))
+        # We compute average NLL over time steps
+        sigma = 20.0 # Assumed standard deviation in pixels
+        
+        # Normalize probabilities
+        probs = np.array(probs)
+        if np.sum(probs) > 0:
+            probs = probs / np.sum(probs)
+        else:
+            probs = np.ones_like(probs) / len(probs)
+            
+        nll_steps = []
+        min_len = min(len(gt_path), min([len(p) for p in paths])) if paths else 0
+        
+        if min_len > 0:
+            for t in range(min_len):
+                gt_pt = np.array(gt_path[t])
+                
+                # Compute likelihood for this point
+                likelihood = 0.0
+                for i, path in enumerate(paths):
+                    pred_pt = np.array(path[t])
+                    dist_sq = np.sum((gt_pt - pred_pt)**2)
+                    
+                    # Gaussian PDF (ignoring constants that cancel out or are fixed)
+                    # PDF = (1 / (2*pi*sigma^2)) * exp(-dist^2 / (2*sigma^2))
+                    # We can just use the exp part and log later, but need constants for "true" NLL
+                    # Let's use a simplified proportional NLL or full one.
+                    # Full 2D Gaussian:
+                    norm_const = 1.0 / (2 * np.pi * sigma**2)
+                    prob_density = norm_const * np.exp(-dist_sq / (2 * sigma**2))
+                    
+                    likelihood += probs[i] * prob_density
+                
+                # Avoid log(0)
+                likelihood = max(likelihood, 1e-10)
+                nll_steps.append(-np.log(likelihood))
+            
+            metrics['nll'] = np.mean(nll_steps)
+        else:
+            metrics['nll'] = 0.0 # Or NaN
+            
+        return metrics
