@@ -28,16 +28,16 @@ The following diagram shows the high level data flow and component interaction w
 To handle unstructured traffic, the system first "learns" where vehicles actually drive.
 *   **Trajectory Clustering:** Raw vehicle tracks are smoothed using a Savitzky Golay filter. We then employ a **Hausdorff Distance** metric to identify spatially similar tracks.
 
-    $$ d_H(A, B) = \max \left( \sup_{a \in A} \inf_{b \in B} d(a, b), \sup_{b \in B} \inf_{a \in A} d(a, b) \right) $$
+$$ d_H(A, B) = \max \left( \sup_{a \in A} \inf_{b \in B} d(a, b), \sup_{b \in B} \inf_{a \in A} d(a, b) \right) $$
 
     Tracks within a tight threshold (like 3.0 pixels) are merged into a single representative "emerging lane."
 *   **Confidence Scoring:** Not all extracted lanes are equal. We assign a confidence score $C_{lane}$ based on the number of supporting tracks ($N_{support}$), ensuring that heavily traveled paths exert a stronger influence on prediction.
 
-    $$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) $$
+$$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) $$
 
 *   **Gaussian Splatting:** Instead of treating lanes as binary lines, we embed them into the road mask as Gaussian distributions. This creates a **Traffic Flow Potential Surface** $P(x)$, where pixel intensity represents the probability of traffic flow.
 
-    $$ P(x) = \sum_{k} C_k \cdot \exp\left(-\frac{dist(x, lane_k)^2}{2\sigma^2}\right) $$
+$$ P(x) = \sum_{k} C_k \cdot \exp\left(-\frac{dist(x, lane_k)^2}{2\sigma^2}\right) $$
 
     This surface allows the predictor to favor paths that follow the "flow" while permitting deviations necessary for overtaking or avoidance.
 
