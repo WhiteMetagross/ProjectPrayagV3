@@ -30,7 +30,8 @@ To handle unstructured traffic, the system first "learns" where vehicles actuall
 
 $$ d_H(A, B) = \max \left( \sup_{a \in A} \inf_{b \in B} d(a, b), \sup_{b \in B} \inf_{a \in A} d(a, b) \right) $$
 
-    Tracks within a tight threshold (like 3.0 pixels) are merged into a single representative "emerging lane."
+
+Tracks within a tight threshold (like 3.0 pixels) are merged into a single representative 'emerging lane'.
 *   **Confidence Scoring:** Not all extracted lanes are equal. We assign a confidence score $C_{lane}$ based on the number of supporting tracks ($N_{support}$), ensuring that heavily traveled paths exert a stronger influence on prediction.
 
 $$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) $$
@@ -39,7 +40,8 @@ $$ C_{lane} = \min\left(1.0, 0.3 + 0.7 \cdot \frac{N_{support}}{N_{max}}\right) 
 
 $$ P(x) = \sum_{k} C_k \cdot \exp\left(-\frac{dist(x, lane_k)^2}{2\sigma^2}\right) $$
 
-    This surface allows the predictor to favor paths that follow the "flow" while permitting deviations necessary for overtaking or avoidance.
+
+This surface allows the predictor to favor paths that follow the "flow" while permitting deviations necessary for overtaking or avoidance.
 
 ![Traffic Flow Potential Surface](visualizations/VisualizationTraffixFlowRegion.jpg)
 *Figure 2: Visualization of the Traffic Flow Potential Surface. The heatmap represents the probability density of vehicle presence, derived from historical tracking data. Warmer colors (red/orange) indicate high traffic corridors, while cooler colors (blue/green) represent lower probability areas. This continuous surface replaces discrete lane markings, allowing for flexible path planning.*
@@ -120,6 +122,7 @@ The system's performance is validated through qualitative analysis of the genera
 
 ## 8. Conclusion:
 The proposed system effectively predicts multi-modal vehicle trajectories by explicitly modeling the physical and social forces governing traffic flow. The shift from discrete lane lines to a probabilistic flow surface allows for a more natural representation of unstructured traffic, while the integration of game theory enables the anticipation of cooperative behaviors.
+
 
 
 
