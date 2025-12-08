@@ -63,6 +63,14 @@ python evaluate_system.py --split val
 python evaluate_system.py --split test
 ```
 
+### Evaluating on Custom Datasets (e.g., 10Hz):
+
+You can specify a different dataset directory and frame rate using the `--dataset` and `--fps` arguments. This is useful for evaluating on downsampled versions of the dataset.
+
+```bash
+python evaluate_system.py --split val --dataset ChunkedProjectPrayagBEVDataset10Hz --fps 10.0
+```
+
 ### Evaluation Metrics:
 
 The script reports the following metrics:

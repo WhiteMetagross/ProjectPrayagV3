@@ -3,6 +3,7 @@ output/
 
 # Exclude dataset directory
 ChunkedProjectPrayagBEVDataset/
+ChunkedProjectPrayagBEVDataset10Hz/
 
 # Exclude cache directory
 __pycache__/

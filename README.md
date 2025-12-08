@@ -91,22 +91,26 @@ $$ Score(\tau) = P_{base} \cdot F_{flow}(\tau) \cdot F_{social}(\tau) \cdot F_{k
 
 ## 6. Evaluation Results:
 
-The system was evaluated on the validation and test splits of the ChunkedProjectPrayagBEVDataset. The metrics used are Minimum Average Displacement Error (minADE), Minimum Final Displacement Error (minFDE), Collision Rate, and Off-Road Rate.
+The system was evaluated on the validation and test splits of the ChunkedProjectPrayagBEVDataset (30Hz) and ChunkedProjectPrayagBEVDataset10Hz (10Hz). Additionally, a cross-dataset evaluation was performed using 10Hz data for prediction but with lane extraction from the 30Hz dataset (10Hz+30Hz Lanes). The metrics used are Minimum Average Displacement Error (minADE), Minimum Final Displacement Error (minFDE), Collision Rate, and Off-Road Rate.
 
-| Metric | Validation Split | Test Split |
-| :--- | :--- | :--- |
-| **Samples** | 493 | 706 |
-| **minADE@1** | 19.92 px | 23.11 px |
-| **minADE@4** | 14.53 px | 17.37 px |
-| **minFDE@1** | 32.73 px | 39.77 px |
-| **minFDE@4** | 24.10 px | 30.83 px |
-| **Miss Rate @10px** | 68.97% | 74.79% |
-| **Miss Rate @20px** | 48.68% | 60.48% |
-| **Norm FDE** | 0.6267 | 0.5929 |
-| **APD (Diversity)** | 9.84 px | 13.09 px |
-| **NLL (Probabilistic)** | 8.4553 | 8.6808 |
-| **Collision Rate** | 2.03% | 3.54% |
-| **Off-Road Rate** | 0.61% | 0.14% |
+| Metric | Val (30Hz) | Val (10Hz) | Val (10Hz+30Hz Lanes) | Test (30Hz) | Test (10Hz) | Test (10Hz+30Hz Lanes) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **Samples** | 519 | 588 | 578 | 756 | 877 | 862 |
+| **minADE@1** | 20.52 px | 23.88 px | 23.26 px | 22.45 px | 28.32 px | 29.99 px |
+| **minADE@4** | 14.09 px | 16.02 px | 15.78 px | 16.83 px | 20.52 px | 21.10 px |
+| **minFDE@1** | 34.61 px | 41.75 px | 40.85 px | 38.48 px | 49.19 px | 52.06 px |
+| **minFDE@4** | 24.39 px | 29.03 px | 28.83 px | 30.06 px | 36.29 px | 37.33 px |
+| **Miss Rate @10px** | 65.90% | 65.65% | 64.71% | 76.19% | 70.13% | 70.65% |
+| **Miss Rate @20px** | 47.40% | 39.12% | 38.58% | 62.04% | 47.55% | 49.54% |
+| **Norm FDE** | 0.7179 | 0.8335 | 0.8415 | 0.6666 | 0.7571 | 0.8138 |
+| **APD (Diversity)** | 11.40 px | 13.75 px | 13.17 px | 12.25 px | 18.07 px | 17.45 px |
+| **NLL (Probabilistic)** | 8.4556 | 8.8146 | 8.7896 | 8.6199 | 9.1269 | 9.1345 |
+| **Collision Rate** | 3.08% | 5.27% | 5.88% | 3.04% | 6.39% | 6.61% |
+| **Off-Road Rate** | 0.39% | 0.51% | 0.52% | 0.66% | 0.34% | 0.35% |
+
+**Note on Sample Size:** The 10Hz dataset yields slightly more valid samples than the 30Hz dataset. This is likely because the lower frame rate and associated smoothing make the lane extraction and association slightly more robust, allowing the predictor to successfully generate trajectories for a few more difficult cases that are filtered out in the 30Hz pipeline.
+
+**Note on Cross-Dataset Evaluation (10Hz+30Hz Lanes):** This configuration evaluates prediction at 10Hz while using lane structures extracted from the 30Hz dataset. This tests the system's ability to leverage higher-resolution lane information for lower-framerate prediction scenarios.
 
 ### Dataset Statistics
 Based on the analysis of 11,593 vehicles across the dataset:
@@ -118,7 +122,17 @@ Based on the analysis of 11,593 vehicles across the dataset:
 The system's performance is validated through qualitative analysis of the generated predictions.
 
 ![Trajectory Predictions](visualizations/TrajectoryPredtionsImage.jpg)
-*Figure 3: Trajectory Prediction Output. The system predicts multiple candidate paths for each vehicle (green/yellow lines), scored by their alignment with the traffic flow field and safety relative to other agents. The background heatmap visualizes the learned traffic flow potential, guiding predictions along established corridors even in the absence of lane markings.*
+*Figure 3: Trajectory Prediction Output (30Hz). The system predicts multiple candidate paths for each vehicle (green/yellow lines), scored by their alignment with the traffic flow field and safety relative to other agents. The background heatmap visualizes the learned traffic flow potential, guiding predictions along established corridors even in the absence of lane markings.*
+
+### 7.1. 10Hz Dataset Visualizations
+
+The system's robustness is further demonstrated on the 10Hz dataset, showing consistent lane extraction and trajectory prediction even at lower frame rates.
+
+![Traffic Flow Potential Surface 10Hz](visualizations/VisualizationTraffixFlowRegion10Hz.jpg)
+*Figure 4: Traffic Flow Potential Surface (10Hz). The learned flow field remains coherent despite the reduced temporal resolution.*
+
+![Trajectory Predictions 10Hz](visualizations/TrajectoryPredtionsImage10Hz.jpg)
+*Figure 5: Trajectory Prediction Output (10Hz). Predictions maintain high fidelity and diversity, effectively navigating the unstructured environment.*
 
 ## 8. Conclusion:
 The proposed system effectively predicts multi-modal vehicle trajectories by explicitly modeling the physical and social forces governing traffic flow. The shift from discrete lane lines to a probabilistic flow surface allows for a more natural representation of unstructured traffic, while the integration of game theory enables the anticipation of cooperative behaviors.

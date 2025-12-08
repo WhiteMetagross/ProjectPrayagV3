@@ -17,7 +17,17 @@ from trajectory_predictor import TrajectoryPredictor
 from evaluation_metrics import TrajectoryEvaluator
 from emerging_lane_extractor import EmergingLaneExtractor
 
-def evaluate_scenario(track_path, road_mask_path):
+def evaluate_scenario(track_path, road_mask_path, fps=config.DEFAULT_FPS, lane_track_path=None, lane_fps=None):
+    """
+    Evaluate a scenario.
+    
+    Args:
+        track_path: Path to tracking CSV for evaluation
+        road_mask_path: Path to road mask JSON
+        fps: FPS of the evaluation dataset
+        lane_track_path: Optional separate track path for lane extraction (for cross-dataset evaluation)
+        lane_fps: Optional FPS for lane extraction dataset
+    """
     print(f"Evaluating: {os.path.basename(track_path)}")
     
     # 1. Load Data
@@ -31,8 +41,14 @@ def evaluate_scenario(track_path, road_mask_path):
     # 2. Initialize Components
     lane_manager = LaneManager()
     
-    # Extract lanes
-    lane_extractor = EmergingLaneExtractor(track_loader, config.DEFAULT_FPS)
+    # Extract lanes - use separate dataset if provided
+    if lane_track_path and lane_fps:
+        print(f"  Using lanes from: {os.path.basename(lane_track_path)} at {lane_fps}Hz")
+        lane_track_loader = TrackDataLoader(lane_track_path)
+        lane_extractor = EmergingLaneExtractor(lane_track_loader, lane_fps)
+    else:
+        lane_extractor = EmergingLaneExtractor(track_loader, fps)
+    
     trajectories = track_loader.extract_lane_trajectories()
     lanes_data = lane_extractor.extract_lanes()
     lanes_dicts = lanes_data['lanes']
@@ -47,21 +63,24 @@ def evaluate_scenario(track_path, road_mask_path):
     
     # Initialize Predictor
     predictor = TrajectoryPredictor(
-        road_mask, lane_manager, social_field, game_theory, config.DEFAULT_FPS
+        road_mask, lane_manager, social_field, game_theory, fps
     )
     
     evaluator = TrajectoryEvaluator(road_mask)
 
     # 3. Define Test Set
-    history_frames = int(config.PAST_HISTORY_SECONDS * config.DEFAULT_FPS)
-    future_frames = int(config.FUTURE_PREDICTION_SECONDS * config.DEFAULT_FPS)
+    history_frames = int(config.PAST_HISTORY_SECONDS * fps)
+    future_frames = int(config.FUTURE_PREDICTION_SECONDS * fps)
     
     test_cases = []
     
-    # Sample every 50th frame
+    # Sample every 50th frame (adjusted for FPS if needed, but keeping simple step for now)
+    # If FPS is lower (10 vs 30), 50 frames is 5s vs 1.6s. 
+    # Let's adjust step to be roughly 1.5-2 seconds.
+    frame_step = int(1.5 * fps)
+    
     start_frame = track_loader.metadata['min_frame'] + history_frames
     end_frame = track_loader.metadata['max_frame'] - future_frames
-    frame_step = 50
     
     if start_frame >= end_frame:
         print("  Skipping: Not enough frames for history+future window.")
@@ -163,11 +182,21 @@ def evaluate_scenario(track_path, road_mask_path):
 def main():
     parser = argparse.ArgumentParser(description='Evaluate Trajectory Prediction System')
     parser.add_argument('--split', type=str, choices=['val', 'test'], help='Dataset split to evaluate')
+    parser.add_argument('--dataset', type=str, default="ChunkedProjectPrayagBEVDataset", help='Dataset directory name')
+    parser.add_argument('--fps', type=float, default=config.DEFAULT_FPS, help='Frames per second of the dataset')
+    parser.add_argument('--lane-dataset', type=str, default=None, help='Dataset to use for lane extraction (cross-dataset mode)')
+    parser.add_argument('--lane-fps', type=float, default=None, help='FPS of the lane extraction dataset')
     args = parser.parse_args()
 
     if args.split:
-        base_dir = os.path.join("ChunkedProjectPrayagBEVDataset", args.split, "annotations")
+        base_dir = os.path.join(args.dataset, args.split, "annotations")
         track_files = glob.glob(os.path.join(base_dir, "*_tracks.csv"))
+        
+        # If using separate lane dataset, prepare mapping
+        lane_base_dir = None
+        if args.lane_dataset:
+            lane_base_dir = os.path.join(args.lane_dataset, args.split, "annotations")
+            print(f"Cross-dataset mode: Lanes from {args.lane_dataset} at {args.lane_fps}Hz")
         
         print(f"Found {len(track_files)} track files in {base_dir}")
         
@@ -193,15 +222,32 @@ def main():
             if not os.path.exists(road_mask_path):
                 print(f"Warning: Road mask not found for {track_path}. Skipping.")
                 continue
+            
+            # Prepare lane extraction paths if cross-dataset mode
+            lane_track_path = None
+            lane_fps = None
+            if lane_base_dir:
+                # Map the track file to the corresponding lane dataset file
+                track_basename = os.path.basename(track_path)
+                lane_track_path = os.path.join(lane_base_dir, track_basename)
+                if os.path.exists(lane_track_path):
+                    lane_fps = args.lane_fps
+                else:
+                    print(f"  Warning: Lane track not found: {lane_track_path}. Using same dataset.")
+                    lane_track_path = None
                 
-            metrics = evaluate_scenario(track_path, road_mask_path)
+            metrics = evaluate_scenario(track_path, road_mask_path, fps=args.fps, 
+                                        lane_track_path=lane_track_path, lane_fps=lane_fps)
             
             for k, v in metrics.items():
                 if k in all_metrics:
                     all_metrics[k].extend(v)
         
         print("\n" + "="*60)
-        print(f"FINAL RESULTS FOR {args.split.upper()} SPLIT")
+        mode_str = ""
+        if args.lane_dataset:
+            mode_str = f" [Lanes from {args.lane_dataset}@{args.lane_fps}Hz]"
+        print(f"FINAL RESULTS FOR {args.split.upper()} SPLIT ({args.dataset}){mode_str}")
         print("="*60)
         if all_metrics['minADE@4']:
             print(f"Total Samples: {len(all_metrics['minADE@4'])}")
@@ -222,7 +268,7 @@ def main():
         
     else:
         # Default behavior
-        metrics = evaluate_scenario(config.TRACKING_DATA_PATH, config.ROAD_MASK_PATH)
+        metrics = evaluate_scenario(config.TRACKING_DATA_PATH, config.ROAD_MASK_PATH, fps=args.fps)
         
         print("\n[5/5] Results:")
         print("------------------------------------------------------------")
